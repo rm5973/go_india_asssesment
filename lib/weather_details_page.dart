@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class WeatherDetailsPage extends StatefulWidget {
   final Map<String, dynamic> weatherData;
@@ -50,6 +51,38 @@ class _WeatherDetailsPageState extends State<WeatherDetailsPage>
     prefs.setString('recentCities', citiesJson);
   }
 
+  Future<void> _fetchWeatherData(String cityName) async {
+    // Replace with your actual API endpoint and key
+    final apiKey = '65b642fa408fba9f53d63cd25b1d1dcc';
+    final apiUrl =
+        'https://api.openweathermap.org/data/2.5/weather?q=$cityName&appid=$apiKey&units=metric';
+
+    final response = await http.get(Uri.parse(apiUrl));
+    if (response.statusCode == 200) {
+      final weatherData = json.decode(response.body);
+      setState(() {
+        recentCities[expandedCardIndex!] = weatherData;
+      });
+    } else {
+      // Handle the error
+      print('Failed to fetch weather data');
+    }
+  }
+
+  Future<void> _removeCity(int index) async {
+    setState(() {
+      recentCities.removeAt(index);
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final citiesJson = json.encode(recentCities);
+    prefs.setString('recentCities', citiesJson);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('City removed from the list.'),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -60,8 +93,11 @@ class _WeatherDetailsPageState extends State<WeatherDetailsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Weather Details'),
-        backgroundColor: Colors.black,
+        title: Text(
+          'Weather Details',
+          style: TextStyle(color: Colors.black),
+        ),
+        backgroundColor: Color(0xFF7AC0E9),
       ),
       body: GestureDetector(
         onVerticalDragUpdate: (details) {
@@ -70,78 +106,84 @@ class _WeatherDetailsPageState extends State<WeatherDetailsPage>
             // You can fetch data again or reset state
           }
         },
-        child: FutureBuilder(
-          future: _controller.forward(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(
-                child: CircularProgressIndicator(),
-              );
-            } else {
-              return SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(1.0, 0.0),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: _controller,
-                  curve: Curves.easeInOut,
-                )),
-                child: Container(
-                  color: Colors.transparent,
-                  child: SingleChildScrollView(
-                    child: Stack(
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Column(
-                                children: [
-                                  for (int i = 0;
-                                      i < recentCities.length;
-                                      i += 2)
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 8.0),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceEvenly,
-                                        children: [
-                                          Expanded(
-                                            child:
-                                                _buildCard(recentCities[i], i),
-                                          ),
-                                          if (i + 1 < recentCities.length)
-                                            Expanded(
-                                              child: _buildCard(
-                                                  recentCities[i + 1], i + 1),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (expandedCardIndex != null)
-                          Positioned.fill(
-                            child: Center(
-                              child: _buildExpandedCard(
-                                  recentCities[expandedCardIndex!]),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+        child: Stack(
+          children: [
+            _buildBackgroundGradient(), // Background gradient
+            SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: _buildRecentCitiesCards(),
+              ),
+            ),
+            if (expandedCardIndex != null)
+              Positioned.fill(
+                child: Center(
+                  child: _buildExpandedCard(recentCities[expandedCardIndex!]),
                 ),
-              );
-            }
-          },
+              ),
+          ],
         ),
       ),
     );
+  }
+
+  Widget _buildBackgroundGradient() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: [0.55, 1.0], // Adjust stops here
+          colors: [
+            Color(0xFF87CEEB), // Sky blue
+            Color(0xFFF4A460), // Sandy brown
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildRecentCitiesCards() {
+    List<Widget> cards = [];
+
+    for (int i = 0; i < recentCities.length; i += 2) {
+      Widget firstCard = Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: _buildCard(recentCities[i], i),
+        ),
+      );
+
+      Widget secondCard;
+      if (i + 1 < recentCities.length) {
+        secondCard = Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: _buildCard(recentCities[i + 1], i + 1),
+          ),
+        );
+      } else {
+        // If there's only one card left, create an empty placeholder for alignment
+        secondCard = Expanded(
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.5 -
+                16.0, // Adjust width as needed
+          ),
+        );
+      }
+
+      cards.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [firstCard, secondCard],
+          ),
+        ),
+      );
+    }
+
+    return cards;
   }
 
   Widget _buildCard(Map<String, dynamic> cityWeather, int index) {
@@ -155,34 +197,50 @@ class _WeatherDetailsPageState extends State<WeatherDetailsPage>
           }
         });
       },
-      child: Container(
-        height: 100.0,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 8.0,
-              offset: Offset(0, 4),
+      child: Stack(
+        children: [
+          Opacity(
+            opacity: 0.5,
+            child: Container(
+              height: 100.0,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 8.0,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        padding: EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Image.network(
-              'http://openweathermap.org/img/wn/${cityWeather['weather'][0]['icon']}@2x.png',
-              width: 50.0,
-              height: 50.0,
+          ),
+          Container(
+            height: 100.0,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16.0),
             ),
-            SizedBox(width: 10.0),
-            Text(
-              cityWeather['name'],
-              style: TextStyle(fontSize: 20.0),
+            padding: EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Image.network(
+                  'http://openweathermap.org/img/wn/${cityWeather['weather'][0]['icon']}@2x.png',
+                  width: 50.0,
+                  height: 50.0,
+                ),
+                SizedBox(width: 10.0),
+                Flexible(
+                  child: Text(
+                    cityWeather['name'],
+                    style: TextStyle(fontSize: 20.0),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -194,58 +252,97 @@ class _WeatherDetailsPageState extends State<WeatherDetailsPage>
           expandedCardIndex = null;
         });
       },
-      child: AnimatedContainer(
-        duration: Duration(milliseconds: 300),
-        height: 240.0,
-        width: MediaQuery.of(context).size.width * 0.9,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 8.0,
-              offset: Offset(0, 4),
+      child: Stack(
+        children: [
+          Opacity(
+            opacity: 0.5,
+            child: AnimatedContainer(
+              duration: Duration(milliseconds: 300),
+              height: 240.0,
+              width: MediaQuery.of(context).size.width * 0.9,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 8.0,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+          ),
+          AnimatedContainer(
+            duration: Duration(milliseconds: 300),
+            height: 240.0,
+            width: MediaQuery.of(context).size.width * 0.9,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16.0),
+            ),
+            padding: EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Image.network(
-                  'http://openweathermap.org/img/wn/${cityWeather['weather'][0]['icon']}@2x.png',
-                  width: 50.0,
-                  height: 50.0,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Image.network(
+                          'http://openweathermap.org/img/wn/${cityWeather['weather'][0]['icon']}@2x.png',
+                          width: 50.0,
+                          height: 50.0,
+                        ),
+                        SizedBox(width: 10.0),
+                        Text(
+                          cityWeather['name'],
+                          style: TextStyle(fontSize: 20.0),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.refresh, color: Colors.blue),
+                          onPressed: () {
+                            _fetchWeatherData(cityWeather['name']);
+                          },
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete, color: Colors.red),
+                          onPressed: () {
+                            _removeCity(expandedCardIndex!);
+                            setState(() {
+                              expandedCardIndex = null;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                SizedBox(width: 10.0),
+                SizedBox(height: 10.0),
                 Text(
-                  cityWeather['name'],
-                  style: TextStyle(fontSize: 20.0),
+                  'Temperature: ${cityWeather['main']['temp'].round()}°C',
+                  style: TextStyle(fontSize: 16.0),
+                ),
+                Text(
+                  'Description: ${cityWeather['weather'][0]['description']}',
+                  style: TextStyle(fontSize: 16.0),
+                ),
+                Text(
+                  'Humidity: ${cityWeather['main']['humidity']}%',
+                  style: TextStyle(fontSize: 16.0),
+                ),
+                Text(
+                  'Wind Speed: ${cityWeather['wind']['speed']} m/s',
+                  style: TextStyle(fontSize: 16.0),
                 ),
               ],
             ),
-            SizedBox(height: 10.0),
-            Text(
-              'Temperature: ${cityWeather['main']['temp'].round()}°C',
-              style: TextStyle(fontSize: 16.0),
-            ),
-            Text(
-              'Description: ${cityWeather['weather'][0]['description']}',
-              style: TextStyle(fontSize: 16.0),
-            ),
-            Text(
-              'Humidity: ${cityWeather['main']['humidity']}%',
-              style: TextStyle(fontSize: 16.0),
-            ),
-            Text(
-              'Wind Speed: ${cityWeather['wind']['speed']} m/s',
-              style: TextStyle(fontSize: 16.0),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

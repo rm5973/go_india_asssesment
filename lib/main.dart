@@ -17,10 +17,11 @@ class MyApp extends StatelessWidget {
     return ScreenUtilInit(
       designSize: Size(375, 812), // Adjust based on your design
       builder: (context, child) => MaterialApp(
-        title: 'Weather App',
+        title: "Weather App",
         theme: ThemeData(
           primarySwatch: Colors.blue,
         ),
+        debugShowCheckedModeBanner: false,
         home: WeatherHomePage(),
       ),
     );
@@ -150,10 +151,10 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Weather App'),
-        backgroundColor: Colors.black,
-      ),
+      // appBar: AppBar(
+      //   title: Text('Weather App',),
+      //   backgroundColor: Colors.black,
+      // ),
       body: Stack(
         children: [
           // Google Map displaying city location
