@@ -9,16 +9,27 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  http: ^1.2.0
+  flutter_screenutil: ^5.9.3
+  flutter_typeahead: ^5.2.0
+  google_maps_flutter: ^2.5.3
+  location: ^6.0.2
+  google_maps_flutter_web: ^0.5.4
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.2
+  build_runner: ^2.4.9
+  bdd_widget_test: ^1.2.1
+  flutter_driver:
+    sdk: flutter
 
 flutter:
   uses-material-design: true
-  # assets:
-  #  - images/a_dot_burr.jpeg
+  assets:
+   - assets/earth_img.png
   #  - images/a_dot_ham.jpeg
   # fonts:
   #   - family: Schyler
