@@ -37,7 +37,7 @@ flutter run
 
 Usage
 
-Upon launching the app,you will see the map and a search bar to search for the city's weather.
+Upon launching the app will check the internet contectivity status, then  the app will make sure to check the user internet conectivity,then you will see the map and a search bar to search for the city's weather.
 The app redirects to a new page displaying weather information after entering a particular city name.
 On the landing page, you can also retrieve information about previously searched cities' history.
 Use the refresh and delete buttons on the expanded weather card to update or remove the city from the list.
