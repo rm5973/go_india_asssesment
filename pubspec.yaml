@@ -16,6 +16,7 @@ dependencies:
   location: ^6.0.2
   google_maps_flutter_web: ^0.5.4
   shared_preferences: ^2.2.3
+  connectivity_plus: ^6.0.3
 
 dev_dependencies:
   flutter_test:

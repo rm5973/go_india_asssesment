@@ -1,11 +1,11 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'weather_service.dart';
-import 'weather_details_page.dart'; // Import the new file
+import 'weather_details_page.dart';
 
 void main() {
   runApp(MyApp());
@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
-      designSize: Size(375, 812), // Adjust based on your design
+      designSize: Size(375, 812),
       builder: (context, child) => MaterialApp(
         title: "Weather App",
         theme: ThemeData(
@@ -38,7 +38,6 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
   final WeatherService _weatherService = WeatherService();
   Map<String, dynamic>? _weatherData;
   bool _isLoading = false;
-  String? _errorMessage;
   LatLng? _cityLocation;
   LatLng? _currentLocation;
   GoogleMapController? _mapController;
@@ -81,8 +80,17 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
   Future<void> _searchWeather() async {
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
     });
+
+    final connectivityResult = await (Connectivity().checkConnectivity());
+    if (connectivityResult == ConnectivityResult.none) {
+      setState(() {
+        _isLoading = false;
+      });
+      _showErrorDialog(
+          "No internet connection. Please connect to the internet and try again.");
+      return;
+    }
 
     try {
       final weatherData = await _weatherService.fetchWeather(_controller.text);
@@ -90,17 +98,14 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
       final lon = weatherData['coord']['lon'];
       final newLocation = LatLng(lat, lon);
 
-      // Perform step-by-step animation from current location to new location
       _animateCameraToLocation(_currentLocation, newLocation, () async {
         setState(() {
           _weatherData = weatherData;
           _cityLocation = newLocation;
-          _currentLocation =
-              newLocation; // Update current location after search
+          _currentLocation = newLocation;
           _isLoading = false;
         });
 
-        // Wait for 5 seconds before navigating to WeatherDetailsPage
         await Future.delayed(Duration(seconds: 1));
 
         Navigator.push(
@@ -112,9 +117,9 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString();
         _isLoading = false;
       });
+      _showErrorDialog("Couldn't find the city. Please try again.");
     }
   }
 
@@ -122,21 +127,19 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
       VoidCallback onAnimationComplete) {
     if (startLocation == null || _mapController == null) return;
 
-    const steps = 10; // Number of steps for animation
+    const steps = 10;
     final startLat = startLocation.latitude;
     final startLng = startLocation.longitude;
     final endLat = endLocation.latitude;
     final endLng = endLocation.longitude;
 
-    // Calculate step size
     final latStep = (endLat - startLat) / steps;
     final lngStep = (endLng - startLng) / steps;
 
-    // Start animating camera
     Timer.periodic(Duration(milliseconds: 100), (timer) {
       if (timer.tick > steps) {
         timer.cancel();
-        onAnimationComplete(); // Call the callback after animation completes
+        onAnimationComplete();
         return;
       }
 
@@ -148,16 +151,31 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
     });
   }
 
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Error'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // appBar: AppBar(
-      //   title: Text('Weather App',),
-      //   backgroundColor: Colors.black,
-      // ),
       body: Stack(
         children: [
-          // Google Map displaying city location
           _currentLocation != null
               ? GoogleMap(
                   onMapCreated: (controller) {
@@ -177,22 +195,18 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
                       : {},
                 )
               : Center(child: CircularProgressIndicator()),
-          // Semi-transparent overlay
           Container(
             color: Colors.black.withOpacity(0.6),
           ),
-          // Main content
           Positioned(
-            top: kToolbarHeight + 16.0, // Adjust the top position as needed
+            top: kToolbarHeight + 16.0,
             left: 16.0,
             right: 16.0,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Text field for city name
                 Container(
-                  constraints: BoxConstraints(
-                      maxWidth: 600.w), // Max width for responsiveness
+                  constraints: BoxConstraints(maxWidth: 600.w),
                   child: TextField(
                     controller: _controller,
                     style: TextStyle(color: Colors.white),
@@ -216,23 +230,14 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
                 if (_isLoading)
                   Center(
                     child: SizedBox(
-                      height: 48.0, // Match the size of the menu icon
-                      width: 48.0, // Match the size of the menu icon
+                      height: 48.0,
+                      width: 48.0,
                       child: CircularProgressIndicator(
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
                       ),
                     ),
                   ),
-                if (_errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(
-                      _errorMessage!,
-                      style: TextStyle(color: Colors.red, fontSize: 14.sp),
-                    ),
-                  ),
                 SizedBox(height: 16.h),
-                // Menu icon below the search bar, hovering over the map
                 Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
@@ -241,7 +246,6 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
                   child: IconButton(
                     icon: Icon(Icons.menu, color: Colors.white),
                     onPressed: () {
-                      // Navigate to WeatherDetailsPage on menu button press
                       if (_weatherData != null) {
                         Navigator.push(
                           context,
